@@ -1,6 +1,8 @@
+import { Currency } from "../enums";
+
 export interface IModifiedItem {
   readonly market_hash_name: string;
-  readonly currency: string;
+  readonly currency: Currency;
   readonly suggested_price: number;
   readonly item_page: string;
   readonly market_page: string;

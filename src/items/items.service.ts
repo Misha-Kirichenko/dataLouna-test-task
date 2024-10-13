@@ -1,31 +1,35 @@
 import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { lastValueFrom } from 'rxjs';
 import { stringify, parse } from 'flatted';
-import { ItemsQueryParamsDTO } from './dto';
 import { HttpService } from '@nestjs/axios';
 import { IModifiedItem } from './interfaces/modifiedItem.interface'; // Предполагается, что интерфейс находится здесь
 import { TOriginalItem } from './types';
+import { ItemsCacheService } from './itemsCache.service';
 
 @Injectable()
 export class ItemsService {
   private apiBaseUrl: string;
-  constructor(private readonly httpService: HttpService) {
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly itemsCacheService: ItemsCacheService,
+  ) {
     this.apiBaseUrl = `https://api.skinport.com/v1/items`;
   }
 
-  public async getItemsWithMinPrices(
-    itemsQueryParams: ItemsQueryParamsDTO,
-  ): Promise<IModifiedItem[]> {
+  public async getItemsWithMinPrices(): Promise<IModifiedItem[]> {
     try {
-      const queryString = this.generateQueryString(itemsQueryParams);
+      const cachedItems = await this.itemsCacheService.getCachedItems();
 
-      const apiUrlForTradable = queryString.length
-        ? `${this.apiBaseUrl}?${queryString}&tradable=1`
-        : `${this.apiBaseUrl}?tradable=1`;
+      //get items from redis if they exist
+      if (cachedItems) {
+        console.log('got cached items', true);
+        return cachedItems;
+      }
 
-      const apiUrlForNonTradable = queryString.length
-        ? `${this.apiBaseUrl}?${queryString}&tradable=0`
-        : `${this.apiBaseUrl}?tradable=0`;
+      //create modified collection, return it, but cache it before returning
+
+      const apiUrlForTradable = `${this.apiBaseUrl}?tradable=1`;
+      const apiUrlForNonTradable = `${this.apiBaseUrl}?tradable=0`;
 
       const reqForTradable = this.httpService.get(`${apiUrlForTradable}`);
       const reqForNonTradable = this.httpService.get(`${apiUrlForNonTradable}`);
@@ -45,7 +49,7 @@ export class ItemsService {
           return acc;
         },
         {} as Record<string, TOriginalItem>,
-      );
+      ); //create hash-map where key is market_hash_name, to match objects faster.
 
       const items: IModifiedItem[] = tradableItems.map(
         (tradableItem: TOriginalItem) => {
@@ -70,21 +74,12 @@ export class ItemsService {
         },
       );
 
+      await this.itemsCacheService.cacheItems(items);
+
       return items;
     } catch (error) {
-      console.error('err', error);
       if (error instanceof HttpException) throw error;
       throw new BadRequestException('Oops... Something went wrong!');
     }
-  }
-
-  private generateQueryString(itemsQueryParams: ItemsQueryParamsDTO): string {
-    const params = [];
-    for (const field in itemsQueryParams) {
-      const queryFieldString = `${field}=${itemsQueryParams[field]}`;
-      params.push(queryFieldString);
-    }
-    const queryString = `${params.length ? params.join('&') : ''}`;
-    return queryString;
   }
 }

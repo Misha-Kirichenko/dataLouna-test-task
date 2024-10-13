@@ -1,0 +1,31 @@
+services:
+  items:
+    build: .
+    container_name: skinport-items
+    command: npm run start
+    ports:
+      - ${APP_PORT}:${APP_PORT}
+    environment:
+      PORT: ${APP_PORT}
+    networks:
+      - skinport-items-network
+    env_file:
+      - .env
+
+  redis:
+    image: redis
+    container_name: redis
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
+    environment:
+      REDIS_PORT: ${REDIS_PORT}
+    networks:
+      - skinport-items-network
+    volumes:
+      - redis-data:/data
+
+networks:
+  skinport-items-network:
+
+volumes:
+  redis-data:
