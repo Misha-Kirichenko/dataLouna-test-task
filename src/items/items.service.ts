@@ -5,6 +5,7 @@ import { HttpService } from '@nestjs/axios';
 import { IModifiedItem } from './interfaces/modifiedItem.interface'; // Предполагается, что интерфейс находится здесь
 import { TOriginalItem } from './types';
 import { ItemsCacheService } from './itemsCache.service';
+import { ERROR_MESSAGES } from 'src/common/constants';
 
 @Injectable()
 export class ItemsService {
@@ -79,7 +80,7 @@ export class ItemsService {
       return items;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      throw new BadRequestException('Oops... Something went wrong!');
+      throw new BadRequestException(ERROR_MESSAGES.badRequest);
     }
   }
 }
