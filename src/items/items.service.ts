@@ -12,7 +12,8 @@ import { TOriginalItem } from './types';
 import { ItemsCacheService } from './itemsCache.service';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/common/constants';
 import { QueryBuilderService } from 'src/common/services/queryBuilder.service';
-import { IUser } from 'src/auth/intefaces';
+import { SqlIsolationLevel } from 'src/common/enums/sqlIsolationLevel.enum';
+import { PoolClient } from 'pg';
 
 @Injectable()
 export class ItemsService {
@@ -95,13 +96,20 @@ export class ItemsService {
     user_id: number,
     itemPurchaseData: IItemPurchaseData,
   ): Promise<{ message: string }> {
+    let client: PoolClient;
     try {
+      client = await this.queryBuilderService.conn.connect();
+      await client.query(
+        `SET TRANSACTION ISOLATION LEVEL ${SqlIsolationLevel.REPEATABLE_READ}`,
+      );
       const { id, quantity } = itemPurchaseData;
 
-      const [foundItem] = await this.queryBuilderService.runQuery(
-        `SELECT id, quantity, suggested_price FROM items WHERE id = $1 LIMIT 1`,
+      const foundItemRawData = await client.query(
+        `SELECT id, quantity, suggested_price FROM items WHERE id = $1 FOR UPDATE`,
         [id],
       );
+
+      const [foundItem] = foundItemRawData.rows;
 
       if (!foundItem) throw new NotFoundException(ERROR_MESSAGES.itemNotFound);
 
@@ -109,10 +117,12 @@ export class ItemsService {
         throw new BadRequestException(ERROR_MESSAGES.notEnoughItems);
       }
 
-      const [user] = (await this.queryBuilderService.runQuery(
-        `SELECT id, balance FROM users WHERE id = $1 LIMIT 1`,
+      const userRawData = await client.query(
+        `SELECT id, balance FROM users WHERE id = $1 FOR UPDATE`,
         [user_id],
-      )) as IUser[];
+      );
+
+      const [user] = userRawData.rows;
 
       if (!user) throw new NotFoundException(ERROR_MESSAGES.userNotFound);
 
@@ -122,26 +132,34 @@ export class ItemsService {
         throw new BadRequestException(ERROR_MESSAGES.notEnoughBalance);
       }
 
-      await this.queryBuilderService.runTransaction([
-        {
-          query: 'UPDATE items SET quantity = quantity - $1 WHERE id = $2',
-          params: [quantity, id],
-        },
-        {
-          query: 'UPDATE users SET balance = balance - $1 WHERE id = $2',
-          params: [totalPrice, user_id],
-        },
-        {
-          query:
-            'INSERT INTO purchases (user_id, item_id, quantity) VALUES ($1, $2, $3)',
-          params: [user_id, id, quantity],
-        },
-      ]);
+      await client.query(
+        `
+        WITH updated_item AS (
+          UPDATE items 
+          SET quantity = quantity - $1 
+          WHERE id = $2 
+          RETURNING id, quantity
+        ), updated_user AS (
+          UPDATE users 
+          SET balance = balance - $3 
+          WHERE id = $4 
+          RETURNING id, balance
+        )
+        INSERT INTO purchases (user_id, item_id, quantity) 
+        VALUES ($4, $2, $1);
+      `,
+        [quantity, id, totalPrice, user_id],
+      );
+
+      await client.query('COMMIT');
 
       return { message: SUCCESS_MESSAGES.itemPurchased };
     } catch (error) {
+      await client.query('ROLLBACK');
       if (error instanceof HttpException) throw error;
       throw new BadRequestException(ERROR_MESSAGES.badRequest);
+    } finally {
+      if (client) client.release();
     }
   }
 }
