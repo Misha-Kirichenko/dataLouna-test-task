@@ -32,5 +32,5 @@ The schema should be added to the repository.
 <ul>
   <li>Rename <em><b>example.env</b></em> to <em><b>.env</b></em> and provide the necessary environment variables</li>
   <li>Inside the project folder, in terminal run: <code>docker compose up --build</code></li>
-  <li>Open <a href="http://localhost:&lt;APP_PORT&gt;/api">http://localhost:&lt;APP_PORT&gt;/api</a> in browser to see api documentation</li>
+  <li>Open <a href="http://localhost:5000/api">http://localhost:&lt;APP_PORT&gt;/api</a>(example) in browser to see api documentation</li>
 </ul>
