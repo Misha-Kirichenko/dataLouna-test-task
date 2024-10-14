@@ -3,11 +3,10 @@ import * as bcrypt from 'bcrypt';
 
 export class SeederService {
   private conn: Pool;
-
   constructor() {
     this.conn = new Pool({
       host: process.env.POSTGRES_HOST,
-      port: parseInt(process.env.POSTGRES_PORT, 10),
+      port: parseInt(process.env.POSTGRES_PORT),
       user: process.env.POSTGRES_USER,
       password: process.env.POSTGRES_PASSWORD,
       database: process.env.POSTGRES_DB_NAME,
@@ -20,7 +19,11 @@ export class SeederService {
     if (!userCount) {
       const email = 'example@mail.com';
       const password = 'Default_123';
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(
+        password,
+        Number(process.env.USER_PASSWORD_SALT_ROUNDS),
+      );
+
       const balance = 750.85;
 
       await this.conn.query(

@@ -7,8 +7,11 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Skinport api')
-    .setDescription('API for interacting with external skinport-api')
+    .setDescription(
+      'API for interacting with external skinport-api and purchasing items from local db',
+    )
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

@@ -1,4 +1,4 @@
 export interface IItemPurchaseData {
-  readonly market_hash_name: string;
+  readonly id: number;
   readonly quantity: number;
 }

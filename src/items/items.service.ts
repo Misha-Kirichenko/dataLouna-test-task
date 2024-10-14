@@ -1,11 +1,18 @@
-import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { lastValueFrom } from 'rxjs';
 import { stringify, parse } from 'flatted';
 import { HttpService } from '@nestjs/axios';
 import { IModifiedItem, IItemPurchaseData } from './interfaces'; // Предполагается, что интерфейс находится здесь
 import { TOriginalItem } from './types';
 import { ItemsCacheService } from './itemsCache.service';
-import { ERROR_MESSAGES } from 'src/common/constants';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/common/constants';
+import { QueryBuilderService } from 'src/common/services/queryBuilder.service';
+import { IUser } from 'src/auth/intefaces';
 
 @Injectable()
 export class ItemsService {
@@ -13,6 +20,7 @@ export class ItemsService {
   constructor(
     private readonly httpService: HttpService,
     private readonly itemsCacheService: ItemsCacheService,
+    private readonly queryBuilderService: QueryBuilderService,
   ) {
     this.apiBaseUrl = `https://api.skinport.com/v1/items`;
   }
@@ -82,5 +90,58 @@ export class ItemsService {
       throw new BadRequestException(ERROR_MESSAGES.badRequest);
     }
   }
-  public async purchaseItem(itemPurchaseData: IItemPurchaseData) { }
+
+  public async purchaseItem(
+    user_id: number,
+    itemPurchaseData: IItemPurchaseData,
+  ): Promise<{ message: string }> {
+    try {
+      const { id, quantity } = itemPurchaseData;
+
+      const [foundItem] = await this.queryBuilderService.runQuery(
+        `SELECT id, quantity, suggested_price FROM items WHERE id = $1 LIMIT 1`,
+        [id],
+      );
+
+      if (!foundItem) throw new NotFoundException(ERROR_MESSAGES.itemNotFound);
+
+      if (foundItem.quantity < quantity) {
+        throw new BadRequestException(ERROR_MESSAGES.notEnoughItems);
+      }
+
+      const [user] = (await this.queryBuilderService.runQuery(
+        `SELECT id, balance FROM users WHERE id = $1 LIMIT 1`,
+        [user_id],
+      )) as IUser[];
+
+      if (!user) throw new NotFoundException(ERROR_MESSAGES.userNotFound);
+
+      const totalPrice = foundItem.suggested_price * quantity;
+
+      if (user.balance < totalPrice) {
+        throw new BadRequestException(ERROR_MESSAGES.notEnoughBalance);
+      }
+
+      await this.queryBuilderService.runTransaction([
+        {
+          query: 'UPDATE items SET quantity = quantity - $1 WHERE id = $2',
+          params: [quantity, id],
+        },
+        {
+          query: 'UPDATE users SET balance = balance - $1 WHERE id = $2',
+          params: [totalPrice, user_id],
+        },
+        {
+          query:
+            'INSERT INTO purchases (user_id, item_id, quantity) VALUES ($1, $2, $3)',
+          params: [user_id, id, quantity],
+        },
+      ]);
+
+      return { message: SUCCESS_MESSAGES.itemPurchased };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException(ERROR_MESSAGES.badRequest);
+    }
+  }
 }

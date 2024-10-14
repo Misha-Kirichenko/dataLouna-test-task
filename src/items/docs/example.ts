@@ -1,3 +1,5 @@
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/common/constants';
+
 export const ITEMS_EXAMPLE = [
   {
     market_hash_name: 'AK-47 | Aquamarine Revenge (Battle-Scarred)',
@@ -30,3 +32,13 @@ export const ITEMS_EXAMPLE = [
     updated_at: 1568073725,
   },
 ];
+
+export const ITEM_PURCHASED_EXAMPLE = {
+  message: SUCCESS_MESSAGES.itemPurchased,
+};
+
+export const ITEM_NOT_FOUND_EXAMPLE = {
+  statusCode: 404,
+  message: ERROR_MESSAGES.itemNotFound,
+  error: 'Not Found',
+};

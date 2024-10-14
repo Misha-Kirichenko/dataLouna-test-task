@@ -1,10 +1,20 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ItemsService } from './items.service';
 import { IModifiedItem } from './interfaces';
 import { CreateItemDocs } from './docs/controller.decorator';
-import { GET_ITEMS_DECORATORS } from './docs/getItems';
-import { ApiTags } from '@nestjs/swagger';
+import { GET_ITEMS_DECORATORS, PURCHASE_ITEM_DECORATORS } from './docs';
 import { QuantityDTO } from './dto/quantity.dto';
+import { IAuthorizedRequest } from 'src/common/interfaces/authorizeRequest.interface';
+import { AuthGuard } from 'src/common/guards';
 
 @ApiTags('Items')
 @Controller('items')
@@ -17,16 +27,20 @@ export class ItemsController {
     return this.itemsService.getItemsWithMinPrices();
   }
 
-  @Post('purchase/:market_hash_name')
+  @CreateItemDocs(PURCHASE_ITEM_DECORATORS)
+  @UseGuards(AuthGuard)
+  @Post('/purchase/:id')
   purchaseItem(
-    @Param('id') market_hash_name: string,
+    @Req() req: IAuthorizedRequest,
+    @Param('id') id: string,
     @Body() quantityDTO: QuantityDTO,
   ) {
+    const { id: user_id } = req.user;
     const itemPurchaseData = {
-      market_hash_name,
+      id: Number(id),
       quantity: quantityDTO.quantity,
     };
 
-    return this.itemsService.purchaseItem(itemPurchaseData);
+    return this.itemsService.purchaseItem(user_id, itemPurchaseData);
   }
 }
