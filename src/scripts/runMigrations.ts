@@ -2,7 +2,7 @@ import { MigrationService } from '../migrations/migration.service';
 
 async function runMigrations() {
   const migrationService = new MigrationService();
-  await migrationService.runMigrations();
+  await migrationService.runAllMigrations();
   console.log('All migrations executed successfully');
   process.exit(0);
 }

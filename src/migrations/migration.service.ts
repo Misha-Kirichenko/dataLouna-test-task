@@ -3,10 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export class MigrationService {
-  private pool: Pool;
-
+  private conn: Pool;
   constructor() {
-    this.pool = new Pool({
+    this.conn = new Pool({
       host: process.env.POSTGRES_HOST,
       port: parseInt(process.env.POSTGRES_PORT, 10),
       user: process.env.POSTGRES_USER,
@@ -15,7 +14,7 @@ export class MigrationService {
     });
   }
 
-  async runMigrations() {
+  async runAllMigrations() {
     const migrationsPath = path.join(__dirname, 'sql');
     const files = fs
       .readdirSync(migrationsPath)
@@ -31,7 +30,7 @@ export class MigrationService {
   private async executeMigration(query: string, filename: string) {
     try {
       console.log(`Running migration: ${filename}`);
-      await this.pool.query(query);
+      await this.conn.query(query);
       console.log(`Migration ${filename} executed successfully`);
     } catch (error) {
       console.error(`Error executing migration ${filename}:`, error);
