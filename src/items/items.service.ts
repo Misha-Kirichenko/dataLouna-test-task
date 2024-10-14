@@ -2,7 +2,7 @@ import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { lastValueFrom } from 'rxjs';
 import { stringify, parse } from 'flatted';
 import { HttpService } from '@nestjs/axios';
-import { IModifiedItem } from './interfaces/modifiedItem.interface'; // Предполагается, что интерфейс находится здесь
+import { IModifiedItem, IItemPurchaseData } from './interfaces'; // Предполагается, что интерфейс находится здесь
 import { TOriginalItem } from './types';
 import { ItemsCacheService } from './itemsCache.service';
 import { ERROR_MESSAGES } from 'src/common/constants';
@@ -23,7 +23,6 @@ export class ItemsService {
 
       //get items from redis if they exist
       if (cachedItems) {
-        console.log('got cached items', true);
         return cachedItems;
       }
 
@@ -83,4 +82,5 @@ export class ItemsService {
       throw new BadRequestException(ERROR_MESSAGES.badRequest);
     }
   }
+  public async purchaseItem(itemPurchaseData: IItemPurchaseData) { }
 }

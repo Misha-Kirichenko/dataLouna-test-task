@@ -1,14 +1,17 @@
 services:
   items:
     build: .
-    container_name: skinport-items
-    command: npm run start
+    container_name: skinport-api
+    command: ["wait-for-it", "${POSTGRES_HOST}:${POSTGRES_PORT}", "--", "npm", "run", "install_migrate_seed_and_start"]
+    depends_on:
+      - postgres
+      - redis
     ports:
       - ${APP_PORT}:${APP_PORT}
     environment:
       PORT: ${APP_PORT}
     networks:
-      - skinport-items-network
+      - skinport-network
     env_file:
       - .env
 
@@ -20,12 +23,30 @@ services:
     environment:
       REDIS_PORT: ${REDIS_PORT}
     networks:
-      - skinport-items-network
+      - skinport-network
     volumes:
       - redis-data:/data
 
+  postgres:
+    container_name: skinport-db
+    image: postgres
+    restart: on-failure
+    env_file:
+      - .env
+    networks:
+      - skinport-network
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+    volumes:
+      - skinportDB:/var/lib/postgresql/data
+
 networks:
-  skinport-items-network:
+  skinport-network:
 
 volumes:
   redis-data:
+  skinportDB:
